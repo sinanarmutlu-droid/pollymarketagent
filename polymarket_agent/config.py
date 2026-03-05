@@ -24,7 +24,7 @@ ORCHESTRATOR_INTERVAL_MINUTES = float(env("ORCHESTRATOR_INTERVAL_MINUTES", "2"))
 STATE_DB_PATH = Path(env("STATE_DB_PATH", "state.db"))
 
 # LLM
-LLM_MODEL = env("LLM_MODEL", "claude-3-5-sonnet-20241022")
+LLM_MODEL = env("LLM_MODEL", "claude-sonnet-4-5")
 
 # Risk (optional overrides)
 KELLY_CAP = float(env("KELLY_CAP", "0.25"))
