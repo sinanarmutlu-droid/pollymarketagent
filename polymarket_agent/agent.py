@@ -2,6 +2,7 @@
 Main entry point: run agent loop every N minutes.
   data → analysis (news → LLM → edge) → execution (risk → trade) → state
 """
+import json
 import time
 
 from config import ORCHESTRATOR_INTERVAL_MINUTES
@@ -16,18 +17,16 @@ from execution.risk_manager import RiskManager
 
 def _token_ids(market: dict) -> list[str]:
     """Extract CLOB token IDs from a Gamma market payload."""
-    ids = []
-    outcomes = market.get("outcomes") or market.get("outcomePrices") or []
-    for o in outcomes if isinstance(outcomes, list) else []:
-        if isinstance(o, dict) and o.get("tokenId"):
-            ids.append(o["tokenId"])
-        elif isinstance(o, str):
-            ids.append(o)
-    if not ids and market.get("clobTokenIds"):
-        ids = market["clobTokenIds"] if isinstance(market["clobTokenIds"], list) else [market["clobTokenIds"]]
-    if not ids and market.get("clobTokenId"):
-        ids = [market["clobTokenId"]]
-    return [t for t in ids if t]
+    clob = market.get("clobTokenIds")
+    if clob:
+        if isinstance(clob, str):
+            try:
+                return json.loads(clob)
+            except Exception:
+                return [clob]
+        if isinstance(clob, list):
+            return clob
+    return []
 
 
 def run_one_cycle(

@@ -42,20 +42,27 @@ class MarketFetcher:
             return r.json()
 
     def get_orderbook(self, token_id: str) -> dict[str, Any]:
-        """Fetch orderbook for one token."""
+        """Fetch orderbook for one token. API requires a single token_id per request."""
+        if isinstance(token_id, list):
+            token_id = token_id[0] if token_id else ""
+        token_id = str(token_id).strip()
         with httpx.Client(timeout=15.0) as client:
             r = client.get(self.clob_url, params={"token_id": token_id})
             r.raise_for_status()
             return r.json()
 
     def get_orderbooks(self, token_ids: list[str]) -> dict[str, dict[str, Any]]:
-        """Fetch orderbooks for multiple tokens."""
+        """Fetch orderbooks for multiple tokens (one GET per token_id)."""
         result = {}
         for tid in token_ids:
+            single = tid[0] if isinstance(tid, list) else tid
+            single = str(single).strip()
+            if not single:
+                continue
             try:
-                result[tid] = self.get_orderbook(tid)
+                result[single] = self.get_orderbook(single)
             except Exception:
-                result[tid] = {}
+                result[single] = {}
         return result
 
     def mid_price(self, token_id: str) -> float | None:
