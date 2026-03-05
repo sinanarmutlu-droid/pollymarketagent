@@ -1,0 +1,78 @@
+"""
+Data: Markets, orderbook, and prices (Polymarket Gamma + CLOB).
+"""
+import httpx
+from typing import Any
+
+GAMMA_MARKETS_URL = "https://gamma-api.polymarket.com/markets"
+CLOB_ORDERBOOK_URL = "https://clob.polymarket.com/book"
+
+
+class MarketFetcher:
+    def __init__(
+        self,
+        gamma_url: str = GAMMA_MARKETS_URL,
+        clob_url: str = CLOB_ORDERBOOK_URL,
+    ):
+        self.gamma_url = gamma_url.rstrip("/")
+        self.clob_url = clob_url.rstrip("/")
+
+    def get_markets(
+        self,
+        limit: int = 100,
+        closed: bool = False,
+        **params: Any,
+    ) -> list[dict[str, Any]]:
+        """Fetch markets from Gamma API."""
+        with httpx.Client(timeout=30.0) as client:
+            r = client.get(
+                self.gamma_url,
+                params={"limit": limit, "closed": str(closed).lower(), **params},
+            )
+            r.raise_for_status()
+            return r.json()
+
+    def get_market(self, condition_id: str) -> dict[str, Any] | None:
+        """Fetch a single market by condition_id."""
+        with httpx.Client(timeout=30.0) as client:
+            r = client.get(f"{self.gamma_url}/{condition_id}")
+            if r.status_code == 404:
+                return None
+            r.raise_for_status()
+            return r.json()
+
+    def get_orderbook(self, token_id: str) -> dict[str, Any]:
+        """Fetch orderbook for one token."""
+        with httpx.Client(timeout=15.0) as client:
+            r = client.get(self.clob_url, params={"token_id": token_id})
+            r.raise_for_status()
+            return r.json()
+
+    def get_orderbooks(self, token_ids: list[str]) -> dict[str, dict[str, Any]]:
+        """Fetch orderbooks for multiple tokens."""
+        result = {}
+        for tid in token_ids:
+            try:
+                result[tid] = self.get_orderbook(tid)
+            except Exception:
+                result[tid] = {}
+        return result
+
+    def mid_price(self, token_id: str) -> float | None:
+        """Mid price from orderbook (best bid + best ask) / 2."""
+        book = self.get_orderbook(token_id)
+        bids = book.get("bids") or []
+        asks = book.get("asks") or []
+        if not bids and not asks:
+            return None
+        best_bid = float(bids[0]["price"]) if bids else 0.0
+        best_ask = float(asks[0]["price"]) if asks else 1.0
+        if not bids:
+            return best_ask
+        if not asks:
+            return best_bid
+        return (best_bid + best_ask) / 2.0
+
+    def get_prices(self, token_ids: list[str]) -> dict[str, float | None]:
+        """Mid price per token."""
+        return {tid: self.mid_price(tid) for tid in token_ids}
