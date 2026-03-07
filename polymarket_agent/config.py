@@ -25,9 +25,12 @@ ORCHESTRATOR_INTERVAL_MINUTES = float(env("ORCHESTRATOR_INTERVAL_MINUTES", "2"))
 STATE_DB_PATH = Path(env("STATE_DB_PATH", "state.db"))
 
 # LLM
-LLM_MODEL = env("LLM_MODEL", "claude-sonnet-4-5")
+LLM_MODEL = env("LLM_MODEL", "claude-sonnet-4-20250514")
 
 # Risk (optional overrides)
-KELLY_CAP = float(env("KELLY_CAP", "0.25"))
+KELLY_CAP = float(env("KELLY_CAP", "0.10"))
 MAX_POSITION_SIZE = float(env("MAX_POSITION_SIZE", "100"))
 MAX_DAILY_LOSS = float(env("MAX_DAILY_LOSS", "500"))
+
+# Trading mode
+PAPER_TRADING = env("PAPER_TRADING", "false").lower() in ("true", "1", "yes")

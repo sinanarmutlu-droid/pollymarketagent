@@ -1,39 +1,39 @@
 """
 Execution: Trade execution and position sync.
-Uses py-clob-client for real order placement when POLYMARKET_PRIVATE_KEY is set.
 """
 import logging
+import os
 from typing import Any, TYPE_CHECKING
+import httpx
 
 if TYPE_CHECKING:
     from state.database import Database
 
 logger = logging.getLogger(__name__)
-
 CLOB_HOST = "https://clob.polymarket.com"
 CHAIN_ID = 137
 
 
 def _get_clob_client():
-    """Build authenticated ClobClient from POLYMARKET_PRIVATE_KEY; returns None if not configured."""
     from config import POLYMARKET_PRIVATE_KEY
     key = (POLYMARKET_PRIVATE_KEY or "").strip()
     if not key:
         return None
     try:
         from py_clob_client.client import ClobClient
-        from py_clob_client.clob_types import OrderArgs, OrderType
-        from py_clob_client.order_builder.constants import BUY
     except ImportError as e:
         logger.warning("py-clob-client not installed: %s", e)
         return None
+    proxy_url = os.environ.get("PROXY_URL", "").strip()
+    if proxy_url:
+        try:
+            import py_clob_client.http_helpers.helpers as _h
+            t = httpx.HTTPTransport(proxy=httpx.Proxy(url=proxy_url))
+            _h._http_client = httpx.Client(transport=t, http2=True)
+        except Exception as e:
+            logger.warning("Proxy setup failed: %s", e)
     try:
-        client = ClobClient(
-            CLOB_HOST,
-            key=key,
-            chain_id=CHAIN_ID,
-            signature_type=0,  # EOA
-        )
+        client = ClobClient(CLOB_HOST, key=key, chain_id=CHAIN_ID, signature_type=0)
         client.set_api_creds(client.create_or_derive_api_creds())
         return client
     except Exception as e:
@@ -43,33 +43,43 @@ def _get_clob_client():
 
 class TradeExecutor:
     def __init__(self, db: Any, api_key: str | None = None, api_secret: str | None = None):
-        from config import POLYMARKET_API_KEY, POLYMARKET_SECRET
+        from config import POLYMARKET_API_KEY, POLYMARKET_SECRET, PAPER_TRADING
         self.db = db
         self.api_key = api_key or POLYMARKET_API_KEY or ""
         self.api_secret = api_secret or POLYMARKET_SECRET or ""
         self._client = _get_clob_client()
         self._has_clob = self._client is not None
+        self._paper_trading = PAPER_TRADING
 
-    def place_order(
-        self,
-        market_id: str,
-        outcome: str,
-        side: str,
-        size: float,
-        price: float,
-        token_id: str | None = None,
-    ) -> dict[str, Any]:
-        """Place order via py-clob-client when configured; otherwise paper-trade (log only)."""
+    def get_balance(self) -> float:
+        """Fetch wallet USDC balance from CLOB API."""
+        if not self._has_clob:
+            return 0.0
+        try:
+            bal = self._client.get_balance_allowance()
+            usdc = float(bal.get("balance", 0) or 0) / 1e6
+            return usdc
+        except Exception as e:
+            logger.warning("Failed to fetch balance: %s", e)
+            return 0.0
+
+    def place_order(self, market_id, outcome, side, size, price, token_id=None):
+        if self._paper_trading:
+            logger.info("PAPER_TRADING enabled - skipping real order")
+            self.db.log_trade(market_id, outcome, side, size, price, None)
+            return {"status": "paper", "paper": True}
+
         if self._has_clob and token_id:
+            trade_cost = size * price
+            balance = self.get_balance()
+            if balance < trade_cost:
+                logger.warning("Insufficient balance: %.2f USDC < %.2f required", balance, trade_cost)
+                return {"status": "insufficient_balance", "balance": balance, "required": trade_cost, "paper": False}
+
             try:
                 from py_clob_client.clob_types import OrderArgs, OrderType
                 from py_clob_client.order_builder.constants import BUY
-                order_args = OrderArgs(
-                    token_id=token_id,
-                    price=round(price, 4),
-                    size=round(size, 4),
-                    side=BUY,
-                )
+                order_args = OrderArgs(token_id=token_id, price=round(price, 4), size=round(size, 4), side=BUY)
                 signed = self._client.create_order(order_args)
                 resp = self._client.post_order(signed, OrderType.GTC)
                 order_id = (resp.get("orderID") or resp.get("id") or "").strip()
@@ -82,7 +92,7 @@ class TradeExecutor:
         self.db.log_trade(market_id, outcome, side, size, price, None)
         return {"status": "logged", "paper": True}
 
-    def cancel_order(self, order_id: str) -> dict[str, Any]:
+    def cancel_order(self, order_id):
         if not self._has_clob:
             return {"status": "no_clob", "order_id": order_id}
         try:
@@ -92,29 +102,22 @@ class TradeExecutor:
             logger.exception("Cancel order failed: %s", e)
             return {"status": "error", "order_id": order_id, "error": str(e)}
 
-    def sync_positions(self) -> list[dict[str, Any]]:
-        """Sync from CLOB into state DB if configured; return current positions."""
+    def sync_positions(self):
         if self._has_clob:
             try:
                 positions = self._clob_positions()
                 for pos in positions:
-                    self.db.upsert_position(
-                        pos.get("market_id", ""),
-                        pos.get("outcome", ""),
-                        pos.get("size", 0.0),
-                        pos.get("avg_price", 0.0),
-                    )
+                    self.db.upsert_position(pos.get("market_id", ""), pos.get("outcome", ""), pos.get("size", 0.0), pos.get("avg_price", 0.0))
             except Exception as e:
                 logger.exception("Sync positions failed: %s", e)
         return self.db.get_positions()
 
-    def _clob_positions(self) -> list[dict[str, Any]]:
-        """Fetch positions from CLOB via get_trades(); aggregate by market/outcome. Returns [] on error."""
+    def _clob_positions(self):
         try:
             trades = self._client.get_trades()
         except Exception:
             return []
-        seen: dict[tuple[str, str], dict[str, Any]] = {}
+        seen = {}
         for t in (trades or []):
             mid = t.get("market") or t.get("market_id", "")
             outcome = t.get("outcome", "")

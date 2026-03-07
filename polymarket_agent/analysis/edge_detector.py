@@ -30,21 +30,53 @@ class EdgeDetector:
         market_price_yes: float,
     ) -> dict[str, Any]:
         """Given LLM output and Yes price, return suggested size and edge."""
-        confidence = float(llm_output.get("confidence_0_1", 0.0))
-        direction = (llm_output.get("direction") or "No").strip().lower()
-        perceived_prob_yes = confidence if direction == "yes" else (1.0 - confidence)
+        if llm_output.get("_error"):
+            return {
+                "kelly_fraction": 0.0,
+                "edge": 0.0,
+                "perceived_prob_yes": 0.5,
+                "direction": "No",
+                "suggested_action": "no_trade",
+                "_error": True,
+            }
 
-        kelly = kelly_for_binary(
-            perceived_prob_yes,
-            market_price_yes,
-            cap_fraction=self.kelly_cap,
-        )
+        if "perceived_probability_yes" in llm_output and llm_output["perceived_probability_yes"] is not None:
+            perceived_prob_yes = float(llm_output["perceived_probability_yes"])
+        else:
+            confidence = float(llm_output.get("confidence_0_1", 0.0))
+            direction_raw = (llm_output.get("direction") or "No").strip().lower()
+            perceived_prob_yes = confidence if direction_raw == "yes" else (1.0 - confidence)
+
+        direction = (llm_output.get("direction") or "No").strip().lower()
+
         edge = perceived_prob_yes - market_price_yes if direction == "yes" else market_price_yes - perceived_prob_yes
+
+        if edge <= 0:
+            return {
+                "kelly_fraction": 0.0,
+                "edge": edge,
+                "perceived_prob_yes": perceived_prob_yes,
+                "direction": "Yes" if direction == "yes" else "No",
+                "suggested_action": "no_trade",
+            }
+
+        if direction == "yes":
+            kelly = kelly_for_binary(
+                perceived_prob_yes,
+                market_price_yes,
+                cap_fraction=self.kelly_cap,
+            )
+        else:
+            kelly = kelly_for_binary(
+                1.0 - perceived_prob_yes,
+                1.0 - market_price_yes,
+                cap_fraction=self.kelly_cap,
+            )
 
         return {
             "kelly_fraction": kelly,
             "edge": edge,
             "perceived_prob_yes": perceived_prob_yes,
             "direction": "Yes" if direction == "yes" else "No",
-            "suggested_action": "buy_yes" if direction == "yes" and kelly > 0 else ("buy_no" if direction == "no" and kelly > 0 else "no_trade"),
+            "suggested_action": "buy_yes" if direction == "yes" else "buy_no",
         }

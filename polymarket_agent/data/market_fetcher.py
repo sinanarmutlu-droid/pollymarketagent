@@ -66,19 +66,50 @@ class MarketFetcher:
         return result
 
     def mid_price(self, token_id: str) -> float | None:
-        """Mid price from orderbook (best bid + best ask) / 2."""
-        book = self.get_orderbook(token_id)
-        bids = book.get("bids") or []
-        asks = book.get("asks") or []
-        if not bids and not asks:
+        """Get best price: use last_trade_price if spread is wide, else mid-price."""
+        try:
+            book = self.get_orderbook(token_id)
+            bids = book.get("bids") or []
+            asks = book.get("asks") or []
+            last_trade = book.get("last_trade_price")
+            
+            # Try to use last_trade_price first (most reliable)
+            if last_trade:
+                try:
+                    ltp = float(last_trade)
+                    if 0 < ltp < 1:
+                        print(f"[PRICE] Using last_trade_price={ltp} for {token_id[:20]}...")
+                        return ltp
+                except (ValueError, TypeError):
+                    pass
+            
+            if not bids and not asks:
+                print(f"[PRICE] No bids/asks and no last_trade for {token_id[:20]}...")
+                return None
+            
+            best_bid = float(bids[0]["price"]) if bids else 0.0
+            best_ask = float(asks[0]["price"]) if asks else 1.0
+            spread = best_ask - best_bid
+            
+            # If spread is too wide (>20%), mid-price is unreliable
+            if spread > 0.20:
+                print(f"[PRICE] Wide spread ({spread:.2f}): bid={best_bid}, ask={best_ask}")
+                # Use weighted average towards the side with more liquidity
+                if bids and asks:
+                    bid_size = float(bids[0].get("size", 0) or 0)
+                    ask_size = float(asks[0].get("size", 0) or 0)
+                    total = bid_size + ask_size
+                    if total > 0:
+                        weighted = (best_bid * bid_size + best_ask * ask_size) / total
+                        print(f"[PRICE] Using weighted price={weighted:.4f}")
+                        return weighted
+            
+            mid = (best_bid + best_ask) / 2.0
+            print(f"[PRICE] Using mid_price={mid:.4f} (bid={best_bid}, ask={best_ask})")
+            return mid
+        except Exception as e:
+            print(f"[PRICE ERROR] {e}")
             return None
-        best_bid = float(bids[0]["price"]) if bids else 0.0
-        best_ask = float(asks[0]["price"]) if asks else 1.0
-        if not bids:
-            return best_ask
-        if not asks:
-            return best_bid
-        return (best_bid + best_ask) / 2.0
 
     def get_prices(self, token_ids: list[str]) -> dict[str, float | None]:
         """Mid price per token."""

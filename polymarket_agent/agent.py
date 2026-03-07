@@ -55,7 +55,10 @@ def _analyze_market(
     console.print(f"  [blue][{idx + 1}/{total}][/blue] [bold]{question[:70]}{'…' if len(question) > 70 else ''}[/bold]")
 
     price_map = markets.get_prices(token_ids)
-    market_price_yes = next((p for p in price_map.values() if p is not None), 0.5) or 0.5
+    market_price_yes = next((p for p in price_map.values() if p is not None), None)
+    if market_price_yes is None:
+        console.print(f"      [yellow]Warning: No price available, skipping[/yellow]")
+        return None
     news_results = news.fetch_for_markets([question])
     news_context = str(news_results.get(question, [])[:5])
     current_prices = {k: v for k, v in price_map.items() if v is not None}
