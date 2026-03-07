@@ -97,6 +97,7 @@ def run_one_cycle(traded_markets=traded_markets, traded_markets: dict = None,
     executor: TradeExecutor,
     risk: RiskManager,
     max_markets: int = 100,
+    traded_markets: dict = None,
 ) -> None:
     if traded_markets is None: traded_markets = {}
     """Single cycle: fetch all markets → analyze each → pick best edge → risk-check → execute once."""
