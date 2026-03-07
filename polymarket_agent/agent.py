@@ -114,9 +114,11 @@ def run_one_cycle(
                     continue
             except Exception:
                 pass
-        # max 2 trades per market
-        existing = [t for t in db.get_trade_log(limit=100) if (t.get("market_id") or "") == (m.get("conditionId") or "")]
-        if len(existing) >= 2:
+        # skip if already have open position in this market
+        cid = m.get("conditionId") or ""
+        open_orders = executor.get_open_orders() if hasattr(executor, 'get_open_orders') else []
+        existing_orders = [o for o in open_orders if (o.get('market') or o.get('market_id') or '') == cid]
+        if len(existing_orders) >= 2:
             continue
         market_list.append(m)
     market_list = market_list[:max_markets]
