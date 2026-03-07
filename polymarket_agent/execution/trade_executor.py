@@ -52,16 +52,22 @@ class TradeExecutor:
         self._paper_trading = PAPER_TRADING
 
     def get_balance(self) -> float:
-        """Fetch wallet USDC balance from CLOB API."""
-        if not self._has_clob:
+        """Fetch wallet USDC balance from Polygon via Web3 (not CLOB API)."""
+        from config import POLYMARKET_PRIVATE_KEY, POLYGON_RPC_URL
+        key = (POLYMARKET_PRIVATE_KEY or "").strip()
+        if not key:
             return 0.0
         try:
             from web3 import Web3
-            w3 = Web3(Web3.HTTPProvider('https://rpc-mainnet.matic.quiknode.pro'))
-            USDC = Web3.to_checksum_address('0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174')
-            abi = [{'name':'balanceOf','type':'function','inputs':[{'name':'account','type':'address'}],'outputs':[{'name':'','type':'uint256'}],'stateMutability':'view'}]
+            from eth_account import Account
+            w3 = Web3(Web3.HTTPProvider(POLYGON_RPC_URL or "https://polygon-rpc.com"))
+            account = Account.from_key(key)
+            address = account.address
+            USDC = Web3.to_checksum_address("0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174")
+            abi = [
+                {"name": "balanceOf", "type": "function", "inputs": [{"name": "account", "type": "address"}], "outputs": [{"name": "", "type": "uint256"}], "stateMutability": "view"}
+            ]
             contract = w3.eth.contract(address=USDC, abi=abi)
-            address = self._client.get_address()
             balance = contract.functions.balanceOf(address).call()
             return float(balance) / 1e6
         except Exception as e:

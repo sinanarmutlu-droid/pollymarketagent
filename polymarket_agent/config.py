@@ -34,3 +34,6 @@ MAX_DAILY_LOSS = float(env("MAX_DAILY_LOSS", "500"))
 
 # Trading mode
 PAPER_TRADING = env("PAPER_TRADING", "false").lower() in ("true", "1", "yes")
+
+# Polygon RPC (for USDC balance via Web3)
+POLYGON_RPC_URL = env("POLYGON_RPC_URL", "https://polygon-rpc.com")

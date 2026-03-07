@@ -74,8 +74,7 @@ Respond in JSON only, with exactly these keys:
                 messages=[{"role": "user", "content": prompt}],
             )
             text = msg.content[0].text if msg.content else "{}"
-            print(f"[LLM RAW] {text}")
-            logger.info("LLM raw response: %s", text)
+            logger.info("LLM raw response: %s", text[:500])
             if "```" in text:
                 start = text.find("{")
                 end = text.rfind("}") + 1
@@ -89,26 +88,21 @@ Respond in JSON only, with exactly these keys:
             
             # Validate required fields
             if "thesis" not in parsed or not parsed.get("thesis"):
-                print(f"[LLM ERROR] Missing thesis in response: {parsed}")
                 logger.warning("LLM response missing thesis: %s", parsed)
                 parsed["_error"] = True
             if "perceived_probability_yes" not in parsed or parsed.get("perceived_probability_yes") is None:
-                print(f"[LLM ERROR] Missing perceived_probability_yes in response: {parsed}")
                 logger.warning("LLM response missing perceived_probability_yes: %s", parsed)
                 parsed["_error"] = True
                 parsed["reasoning"] = "Missing perceived_probability_yes in LLM response"
             if "direction" not in parsed or parsed.get("direction") not in ("Yes", "No", "yes", "no"):
-                print(f"[LLM ERROR] Invalid direction in response: {parsed.get('direction')}")
                 logger.warning("LLM response invalid direction: %s", parsed.get("direction"))
                 parsed["_error"] = True
                 parsed["reasoning"] = "Invalid direction in LLM response"
 
-            print(f"[LLM PARSED] thesis={parsed.get('thesis', '')[:60]}, prob_yes={parsed.get('perceived_probability_yes')}, dir={parsed.get('direction')}")
             logger.info("LLM parsed: thesis=%s, prob_yes=%.2f, dir=%s",
                         parsed.get("thesis", "")[:50], parsed.get("perceived_probability_yes", 0) or 0, parsed.get("direction"))
             return parsed
         except json.JSONDecodeError as e:
-            print(f"[LLM ERROR] Invalid JSON: {e}, raw text: {text[:200]}")
             logger.error("LLM response not valid JSON: %s, raw: %s", e, text[:200])
             return {
                 "thesis": "",
@@ -119,7 +113,6 @@ Respond in JSON only, with exactly these keys:
                 "_error": True,
             }
         except Exception as e:
-            print(f"[LLM ERROR] Call failed: {e}")
             logger.exception("LLM call failed: %s", e)
             return {
                 "thesis": "",

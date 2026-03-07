@@ -180,7 +180,7 @@ def run_one_cycle(
         side="BUY",
         size=size,
         price=price,
-        token_id=token_ids[0] if token_ids else None,
+        token_id=(token_ids[1] if action == "buy_no" and len(token_ids) > 1 else token_ids[0]) if token_ids else None,
     )
     console.print(f"  [dim]Result: {result}[/dim]")
 
@@ -192,14 +192,6 @@ def main() -> None:
     llm = LLMReasoner()
     edge = EdgeDetector()
     executor = TradeExecutor(db)
-    try:
-        from py_clob_client.clob_types import AssetType, BalanceAllowanceParams
-        executor._client.update_balance_allowance(
-            params=BalanceAllowanceParams(asset_type=AssetType.COLLATERAL)
-        )
-        print("Balance allowance updated!")
-    except Exception as e:
-        print(f"Allowance update failed: {e}")
     risk = RiskManager(db)
 
     console.print(
