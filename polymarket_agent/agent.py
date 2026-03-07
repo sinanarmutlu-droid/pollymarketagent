@@ -87,8 +87,7 @@ def _analyze_market(
     }
 
 
-def run_one_cycle(traded_markets=traded_markets, traded_markets: dict = None,
-    
+def run_one_cycle(
     db: Database,
     markets: MarketFetcher,
     news: NewsFetcher,
