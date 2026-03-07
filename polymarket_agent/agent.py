@@ -87,7 +87,8 @@ def _analyze_market(
     }
 
 
-def run_one_cycle(
+def run_one_cycle(traded_markets=traded_markets, traded_markets: dict = None,
+    
     db: Database,
     markets: MarketFetcher,
     news: NewsFetcher,
@@ -97,6 +98,7 @@ def run_one_cycle(
     risk: RiskManager,
     max_markets: int = 100,
 ) -> None:
+    if traded_markets is None: traded_markets = {}
     """Single cycle: fetch all markets → analyze each → pick best edge → risk-check → execute once."""
     console.print()
     console.print("[bold cyan]── Fetching markets[/bold cyan]")
@@ -234,7 +236,7 @@ def main() -> None:
     )
     while True:
         try:
-            run_one_cycle(db, markets, news, llm, edge, executor, risk)
+            run_one_cycle(traded_markets=traded_markets, db, markets, news, llm, edge, executor, risk)
         except Exception as e:
             console.print(f"[bold red]Cycle error:[/bold red] {e}", style="red")
         time.sleep(ORCHESTRATOR_INTERVAL_MINUTES * 60.0)
