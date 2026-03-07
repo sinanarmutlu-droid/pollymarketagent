@@ -14,8 +14,24 @@ CLOB_HOST = "https://clob.polymarket.com"
 CHAIN_ID = 137
 
 
+def _detect_geoblock() -> bool:
+    """Probe CLOB without proxy; if 403, current IP is likely geoblocked."""
+    try:
+        r = httpx.get(f"{CLOB_HOST}/book", params={"token_id": "1"}, timeout=10.0)
+        if r.status_code == 403:
+            logger.warning(
+                "Polymarket CLOB returned 403 (trading restricted in your region). "
+                "Set POLYMARKET_HTTP_PROXY to an HTTP(S) or SOCKS proxy in an allowed region."
+            )
+            return True
+        return False
+    except Exception as e:
+        logger.debug("Geoblock probe failed: %s", e)
+        return False
+
+
 def _get_clob_client():
-    from config import POLYMARKET_PRIVATE_KEY
+    from config import POLYMARKET_PRIVATE_KEY, POLYMARKET_HTTP_PROXY
     key = (POLYMARKET_PRIVATE_KEY or "").strip()
     if not key:
         return None
@@ -24,14 +40,19 @@ def _get_clob_client():
     except ImportError as e:
         logger.warning("py-clob-client not installed: %s", e)
         return None
-    proxy_url = os.environ.get("PROXY_URL", "").strip()
+
+    proxy_url = (POLYMARKET_HTTP_PROXY or "").strip()
     if proxy_url:
         try:
             import py_clob_client.http_helpers.helpers as _h
-            t = httpx.HTTPTransport(proxy=httpx.Proxy(url=proxy_url))
-            _h._http_client = httpx.Client(transport=t, http2=True)
+            transport = httpx.HTTPTransport(proxy=httpx.Proxy(url=proxy_url))
+            _h._http_client = httpx.Client(transport=transport, http2=True)
+            logger.info("Polymarket CLOB using proxy: %s", proxy_url.split("@")[-1] if "@" in proxy_url else proxy_url[:50])
         except Exception as e:
             logger.warning("Proxy setup failed: %s", e)
+    else:
+        _detect_geoblock()
+
     try:
         client = ClobClient(CLOB_HOST, key=key, chain_id=CHAIN_ID, signature_type=0)
         client.set_api_creds(client.create_or_derive_api_creds())

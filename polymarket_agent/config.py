@@ -37,3 +37,7 @@ PAPER_TRADING = env("PAPER_TRADING", "false").lower() in ("true", "1", "yes")
 
 # Polygon RPC (for USDC balance via Web3)
 POLYGON_RPC_URL = env("POLYGON_RPC_URL", "https://polygon-rpc.com")
+
+# HTTP proxy for Polymarket CLOB (avoids 403 "Trading restricted in your region")
+# Prefer POLYMARKET_HTTP_PROXY; fallback to PROXY_URL for compatibility
+POLYMARKET_HTTP_PROXY = env("POLYMARKET_HTTP_PROXY") or env("PROXY_URL")

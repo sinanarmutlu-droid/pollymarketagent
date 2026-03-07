@@ -151,7 +151,7 @@ def run_one_cycle(
 
     outcome = "Yes" if action == "buy_yes" else "No"
     price = market_price_yes if outcome == "Yes" else (1.0 - market_price_yes)
-    size = 10.0 * kelly
+    size = max(5.0, 10.0 * kelly)
     size = risk.capped_size(size, price)
 
     allowed, reason = risk.approve_trade(condition_id, outcome, size, price)
