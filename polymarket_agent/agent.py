@@ -95,12 +95,31 @@ def run_one_cycle(
     edge: EdgeDetector,
     executor: TradeExecutor,
     risk: RiskManager,
-    max_markets: int = 5,
+    max_markets: int = 20,
 ) -> None:
     """Single cycle: fetch all markets → analyze each → pick best edge → risk-check → execute once."""
     console.print()
     console.print("[bold cyan]── Fetching markets[/bold cyan]")
-    market_list = markets.get_markets(limit=max_markets, closed=False)
+    from datetime import datetime, timezone
+    market_list_raw = markets.get_markets(limit=50, closed=False)
+    now = datetime.now(timezone.utc)
+    market_list = []
+    for m in market_list_raw:
+        end_date = m.get("endDate") or m.get("end_date") or ""
+        if end_date:
+            try:
+                ed = datetime.fromisoformat(end_date.replace("Z", "+00:00"))
+                days_left = (ed - now).days
+                if days_left < 0 or days_left > 90:
+                    continue
+            except Exception:
+                pass
+        # max 2 trades per market
+        existing = [t for t in db.get_trade_log(l00) if t[1] == (m.get("conditionId") or "")]
+        if len(existing) >= 2:
+            continue
+        market_list.append(m)
+    market_list = market_list[:max_markets]
     if not market_list:
         console.print("[yellow]No markets returned.[/yellow]")
         return
