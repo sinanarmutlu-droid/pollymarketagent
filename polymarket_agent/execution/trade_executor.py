@@ -109,7 +109,7 @@ class TradeExecutor:
                 return {"status": "insufficient_balance", "balance": balance, "required": trade_cost, "paper": False}
 
             try:
-                from py_clob_client.clob_types import OrderArgs, OrderType
+                from py_clob_client.clob_types import OpenOrderParams, OrderArgs, OrderType
                 from py_clob_client.order_builder.constants import BUY
                 order_args = OrderArgs(token_id=token_id, price=round(price, 4), size=round(size, 4), side=BUY)
                 signed = self._client.create_order(order_args)
@@ -164,3 +164,11 @@ class TradeExecutor:
             if size > 0 and price > 0:
                 prev["avg_price"] = (prev["avg_price"] * old_size + price * size) / prev["size"]
         return list(seen.values())
+    def get_open_orders(self) -> list[dict]:
+        """Polymarket API'den açık orderları çek."""
+        try:
+            client = self._get_clob_client()
+            orders = client.get_orders(OpenOrderParams())
+            return orders if orders else []
+        except Exception:
+            return []
