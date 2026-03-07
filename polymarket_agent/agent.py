@@ -198,7 +198,11 @@ def run_one_cycle(
             box=box.ROUNDED,
         )
     )
-    result = executor.place_order(
+    _cid = best["market"].get("conditionId","") if best else ""
+    if traded_markets.get(_cid, 0) >= 2:
+        console.print("  [yellow]Skipping: max 2 trades reached for this market[/yellow]")
+    else:
+     result = executor.place_order(
         market_id=condition_id,
         outcome=outcome,
         side="BUY",
@@ -207,11 +211,13 @@ def run_one_cycle(
         token_id=(token_ids[1] if action == "buy_no" and len(token_ids) > 1 else token_ids[0]) if token_ids else None,
     )
     console.print(f"  [dim]Result: {result}[/dim]")
+    traded_markets[_cid] = traded_markets.get(_cid, 0) + 1
 
 
 def main() -> None:
     db = Database()
     markets = MarketFetcher()
+    traded_markets: dict = {}
     news = NewsFetcher()
     llm = LLMReasoner()
     edge = EdgeDetector()
