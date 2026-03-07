@@ -192,6 +192,14 @@ def main() -> None:
     llm = LLMReasoner()
     edge = EdgeDetector()
     executor = TradeExecutor(db)
+    try:
+        from py_clob_client.clob_types import AssetType, BalanceAllowanceParams
+        executor._client.update_balance_allowance(
+            params=BalanceAllowanceParams(asset_type=AssetType.COLLATERAL)
+        )
+        print("Balance allowance updated!")
+    except Exception as e:
+        print(f"Allowance update failed: {e}")
     risk = RiskManager(db)
 
     console.print(
