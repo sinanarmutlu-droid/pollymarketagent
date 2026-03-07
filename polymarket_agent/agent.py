@@ -110,7 +110,7 @@ def run_one_cycle(
             try:
                 ed = datetime.fromisoformat(end_date.replace("Z", "+00:00"))
                 days_left = (ed - now).days
-                if days_left < 0 or days_left > 30:
+                if days_left < 0 or days_left > 90:
                     continue
             except Exception:
                 pass
