@@ -116,10 +116,13 @@ def run_one_cycle(
                 pass
         # skip if already have open position in this market
         cid = m.get("conditionId") or ""
-        open_orders = executor.get_open_orders() if hasattr(executor, 'get_open_orders') else []
-        existing_orders = [o for o in open_orders if (o.get('market') or o.get('market_id') or '') == cid]
-        if len(existing_orders) >= 2:
-            continue
+        try:
+            all_orders = executor._get_clob_client().get_orders() or []
+            existing_orders = [o for o in all_orders if (o.get('market') or o.get('asset_id') or '') == cid]
+            if len(existing_orders) >= 2:
+                continue
+        except Exception:
+            pass
         market_list.append(m)
     market_list = market_list[:max_markets]
     if not market_list:
