@@ -201,10 +201,11 @@ def run_one_cycle(
         )
     )
     _cid = best["market"].get("conditionId","") if best else ""
+    result = {}
     if traded_markets.get(_cid, 0) >= 2:
         console.print("  [yellow]Skipping: max 2 trades reached for this market[/yellow]")
     else:
-     result = executor.place_order(
+        result = executor.place_order(
         market_id=condition_id,
         outcome=outcome,
         side="BUY",
