@@ -110,12 +110,12 @@ def run_one_cycle(
             try:
                 ed = datetime.fromisoformat(end_date.replace("Z", "+00:00"))
                 days_left = (ed - now).days
-                if days_left < 0 or days_left > 90:
+                if days_left < 0 or days_left > 60:
                     continue
             except Exception:
                 pass
         # max 2 trades per market
-        existing = [t for t in db.get_trade_log(limit=100) if (t.get("market_id") or t.get("condition_id") or "") == (m.get("conditionId") or "")]
+        existing = [t for t in db.get_trade_log(limit=100) if (t.get("market_id") or "") == (m.get("conditionId") or "")]
         if len(existing) >= 2:
             continue
         market_list.append(m)
