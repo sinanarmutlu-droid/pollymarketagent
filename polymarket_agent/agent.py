@@ -95,13 +95,13 @@ def run_one_cycle(
     edge: EdgeDetector,
     executor: TradeExecutor,
     risk: RiskManager,
-    max_markets: int = 20,
+    max_markets: int = 100,
 ) -> None:
     """Single cycle: fetch all markets → analyze each → pick best edge → risk-check → execute once."""
     console.print()
     console.print("[bold cyan]── Fetching markets[/bold cyan]")
     from datetime import datetime, timezone
-    market_list_raw = markets.get_markets(limit=50, closed=False)
+    market_list_raw = markets.get_markets(limit=200, closed=False)
     now = datetime.now(timezone.utc)
     market_list = []
     for m in market_list_raw:
