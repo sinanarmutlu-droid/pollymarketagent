@@ -236,7 +236,7 @@ def main() -> None:
     )
     while True:
         try:
-            run_one_cycle(traded_markets=traded_markets, db, markets, news, llm, edge, executor, risk)
+            run_one_cycle(db, markets, news, llm, edge, executor, risk, traded_markets=traded_markets)
         except Exception as e:
             console.print(f"[bold red]Cycle error:[/bold red] {e}", style="red")
         time.sleep(ORCHESTRATOR_INTERVAL_MINUTES * 60.0)
