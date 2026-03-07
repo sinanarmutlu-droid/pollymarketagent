@@ -115,7 +115,7 @@ def run_one_cycle(
             except Exception:
                 pass
         # max 2 trades per market
-        existing = [t for t in db.get_trade_log(l00) if t[1] == (m.get("conditionId") or "")]
+        existing = [t for t in db.get_trade_log(limit=100) if t[1] == (m.get("conditionId") or "")]
         if len(existing) >= 2:
             continue
         market_list.append(m)
