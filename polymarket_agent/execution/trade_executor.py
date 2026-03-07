@@ -56,12 +56,14 @@ class TradeExecutor:
         if not self._has_clob:
             return 0.0
         try:
-            from py_clob_client.clob_types import AssetType, BalanceAllowanceParams
-            bal = self._client.get_balance_allowance(
-                params=BalanceAllowanceParams(asset_type=AssetType.COLLATERAL)
-            )
-            usdc = float(bal.get("balance", 0) or 0) / 1e6
-            return usdc
+            from web3 import Web3
+            w3 = Web3(Web3.HTTPProvider('https://rpc-mainnet.matic.quiknode.pro'))
+            USDC = Web3.to_checksum_address('0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174')
+            abi = [{'name':'balanceOf','type':'function','inputs':[{'name':'account','type':'address'}],'outputs':[{'name':'','type':'uint256'}],'stateMutability':'view'}]
+            contract = w3.eth.contract(address=USDC, abi=abi)
+            address = self._client.get_address()
+            balance = contract.functions.balanceOf(address).call()
+            return float(balance) / 1e6
         except Exception as e:
             logger.warning("Failed to fetch balance: %s", e)
             return 0.0
