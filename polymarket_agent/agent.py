@@ -95,7 +95,7 @@ def run_one_cycle(
     edge: EdgeDetector,
     executor: TradeExecutor,
     risk: RiskManager,
-    max_markets: int = 50,
+    max_markets: int = 10,
     traded_markets: dict = None,
 ) -> None:
     if traded_markets is None: traded_markets = {}
